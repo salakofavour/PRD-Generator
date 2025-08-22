@@ -4,11 +4,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a **Product Requirements Document (PRD) Generator** built with Streamlit and OpenAI. It helps project managers, product owners, and stakeholders create comprehensive PRDs through natural language interaction with an AI assistant.
+This is a **Two-Tier Product Requirements Document (PRD) Generator** built with Streamlit and OpenAI. It helps project managers, product owners, and stakeholders create comprehensive PRDs through natural language interaction with an AI assistant.
+
+### Two-Tier PRD System
+
+1. **Product-Level PRD** - Master reference document containing:
+   - Product vision, technical stack, security measures, architecture
+   - Product-wide requirements and high-level features
+   - Serves as foundation for all Epic-Level PRDs
+
+2. **Epic-Level PRD** - Detailed documents for specific Jira epics that:
+   - Inherit relevant master-level details from Product-Level PRD
+   - Focus on specific feature sets or user stories
+   - Link directly to Jira epics for development tracking
 
 ### Key Features
+- **Two-Tier PRD Creation**: Product-Level and Epic-Level PRDs with inheritance
 - **Natural Language Query (NLQ)**: Chat-like interface for PRD creation and iteration
-- **Version Control**: Track and revert to previous PRD versions
+- **Jira Integration**: Link Epic PRDs to Jira epic keys for tracking
+- **Version Control**: Track and revert to previous PRD versions for both types
 - **Collaboration**: Share and approve PRDs for continuous improvement
 - **Training Loop**: Approved PRDs feed back into the system to improve AI responses
 - **Local Deployment**: Runs entirely locally with Streamlit
@@ -80,8 +94,12 @@ streamlit run app.py --server.port 8501
 
 ### Database Schema
 
-- **`prds`**: Main PRD records with metadata
-- **`prd_versions`**: Complete version history
+- **`prds`**: Main PRD records with metadata including:
+  - `prd_type`: 'product' or 'epic' to distinguish PRD types
+  - `parent_prd_id`: Links Epic PRDs to their Product PRD parent
+  - `jira_epic_key`: Links Epic PRDs to Jira epics
+  - `technical_stack`, `security_measures`, `architecture_overview`: Product-level metadata
+- **`prd_versions`**: Complete version history for both PRD types
 - **`chat_sessions`**: Conversation logs for each PRD
 
 ## Configuration

@@ -41,15 +41,52 @@ def main():
     # Sidebar for PRD management
     st.sidebar.title("PRD Management")
     
-    # Load existing PRDs
-    prds = db.get_all_prds()
-    current_prd_id = chat_ui.render_prd_management(prds)
+    # PRD Type Selection
+    prd_type = st.sidebar.selectbox(
+        "PRD Type", 
+        ["Product-Level PRD", "Epic-Level PRD"],
+        help="Choose between Product-Level (master reference) or Epic-Level (specific Jira epic) PRD"
+    )
+    
+    # Load existing PRDs based on type
+    if prd_type == "Product-Level PRD":
+        prds = db.get_product_level_prds()
+        current_prd_id = chat_ui.render_prd_management(prds, prd_type="product")
+    else:
+        # For Epic-Level PRDs, first show Product-Level PRDs to select parent
+        product_prds = db.get_product_level_prds()
+        if product_prds:
+            selected_product = st.sidebar.selectbox(
+                "Select Parent Product PRD",
+                options=[""] + [f"{prd['title']} (ID: {prd['id'][:8]})" for prd in product_prds],
+                help="Epic-Level PRDs inherit from a Product-Level PRD"
+            )
+            
+            if selected_product:
+                parent_id = selected_product.split("ID: ")[1].split(")")[0]
+                # Find the full parent ID
+                parent_prd = next((prd for prd in product_prds if prd['id'].startswith(parent_id)), None)
+                if parent_prd:
+                    st.session_state.parent_prd = parent_prd
+                    epic_prds = db.get_epic_prds_by_parent(parent_prd['id'])
+                    current_prd_id = chat_ui.render_prd_management(epic_prds, prd_type="epic")
+                else:
+                    current_prd_id = None
+            else:
+                current_prd_id = None
+        else:
+            st.sidebar.warning("Create a Product-Level PRD first!")
+            current_prd_id = None
     
     # Initialize session state
     if "current_prd" not in st.session_state:
         st.session_state.current_prd = None
     if "prd_content" not in st.session_state:
         st.session_state.prd_content = ""
+    if "current_prd_type" not in st.session_state:
+        st.session_state.current_prd_type = "product"
+    if "parent_prd" not in st.session_state:
+        st.session_state.parent_prd = None
     
     # Display current PRD info
     if current_prd_id:
@@ -69,18 +106,27 @@ def main():
         
         with st.spinner("Generating response..."):
             if st.session_state.current_prd is None:
-                # Generate new PRD
-                response = llm.generate_prd(user_input)
-                
-                # Save PRD
-                title = f"PRD_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                prd_id = db.save_prd(title, response, user_input)
+                # Generate new PRD based on type
+                if prd_type == "Product-Level PRD":
+                    response = llm.generate_product_level_prd(user_input)
+                    title = f"Product_PRD_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                    prd_id = db.save_prd(title, response, user_input, prd_type="product")
+                else:
+                    # Epic-Level PRD
+                    if hasattr(st.session_state, 'parent_prd') and st.session_state.parent_prd:
+                        response = llm.generate_epic_level_prd(user_input, st.session_state.parent_prd['content'])
+                        title = f"Epic_PRD_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                        prd_id = db.create_epic_prd(title, response, user_input, st.session_state.parent_prd['id'])
+                    else:
+                        st.error("Please select a Parent Product PRD first!")
+                        return
                 
                 # Update session state
                 st.session_state.current_prd = db.get_prd(prd_id)
                 st.session_state.prd_content = response
+                st.session_state.current_prd_type = "product" if prd_type == "Product-Level PRD" else "epic"
                 
-                chat_ui.add_message("assistant", f"Generated new PRD: {title}")
+                chat_ui.add_message("assistant", f"Generated new {prd_type}: {title}")
             else:
                 # Chat about existing PRD
                 response = llm.chat_with_prd(
@@ -97,7 +143,8 @@ def main():
         
         if st.session_state.prd_content:
             # Action buttons
-            actions = chat_ui.render_action_buttons()
+            current_type = st.session_state.current_prd.get('prd_type', 'product') if st.session_state.current_prd else 'product'
+            actions = chat_ui.render_action_buttons(current_type)
             
             if actions.get('save'):
                 if st.session_state.current_prd:
@@ -127,6 +174,50 @@ def main():
             if actions.get('clear_chat'):
                 chat_ui.clear_chat()
                 st.rerun()
+            
+            if actions.get('create_epic'):
+                if st.session_state.current_prd and st.session_state.current_prd.get('prd_type') == 'product':
+                    st.session_state.show_epic_creation = True
+                    st.rerun()
+            
+            # Handle Epic Creation
+            if st.session_state.get('show_epic_creation'):
+                st.subheader("Create New Epic PRD")
+                
+                with st.form("epic_creation_form"):
+                    epic_title = st.text_input("Epic Title:")
+                    epic_description = st.text_area("Epic Description:", height=100)
+                    jira_key = st.text_input("Jira Epic Key (optional):", placeholder="e.g., PROJ-123")
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        create_epic = st.form_submit_button("Create Epic PRD")
+                    with col2:
+                        cancel_epic = st.form_submit_button("Cancel")
+                    
+                    if create_epic and epic_title and epic_description:
+                        with st.spinner("Creating Epic PRD..."):
+                            epic_response = llm.generate_epic_level_prd(
+                                f"Epic Title: {epic_title}\n\nDescription: {epic_description}",
+                                st.session_state.current_prd['content'],
+                                jira_key
+                            )
+                            
+                            epic_prd_id = db.create_epic_prd(
+                                epic_title, 
+                                epic_response, 
+                                epic_description, 
+                                st.session_state.current_prd['id'],
+                                jira_key if jira_key else None
+                            )
+                            
+                            st.success(f"Created Epic PRD: {epic_title}")
+                            st.session_state.show_epic_creation = False
+                            st.rerun()
+                    
+                    if cancel_epic:
+                        st.session_state.show_epic_creation = False
+                        st.rerun()
             
             # Display PRD content
             chat_ui.render_prd_display(
@@ -167,30 +258,89 @@ def main():
     with tab2:
         st.subheader("📚 PRD Library")
         
-        if prds:
-            for prd in prds:
-                with st.expander(f"📋 {prd['title']} - Version {prd['version']} ({'✅ Approved' if prd['is_approved'] else '📝 Draft'})"):
+        # Show Product-Level PRDs
+        product_prds = db.get_product_level_prds()
+        
+        if product_prds:
+            st.markdown("### 🏭 Product-Level PRDs")
+            for prd in product_prds:
+                prd_type_badge = "🏭 Product" 
+                approval_badge = "✅ Approved" if prd['is_approved'] else "📝 Draft"
+                
+                with st.expander(f"{prd_type_badge} {prd['title']} - Version {prd['version']} ({approval_badge})"):
                     col1, col2 = st.columns([3, 1])
                     
                     with col1:
+                        st.markdown(f"**Type:** Product-Level PRD")
                         st.markdown(f"**Created:** {prd['created_at']}")
                         st.markdown(f"**Last Updated:** {prd['updated_at']}")
                         st.markdown(f"**Status:** {prd['status']}")
+                        if prd.get('technical_stack'):
+                            st.markdown(f"**Tech Stack:** {prd['technical_stack'][:100]}...")
                         if prd['feedback']:
                             st.markdown(f"**Feedback:** {prd['feedback']}")
                     
                     with col2:
-                        if st.button(f"Load {prd['title']}", key=f"load_{prd['id']}"):
+                        if st.button(f"Load", key=f"load_prod_{prd['id']}"):
                             st.session_state.current_prd = prd
                             st.session_state.prd_content = prd['content']
                             st.success(f"Loaded {prd['title']}")
                             st.rerun()
                     
+                    # Show Epic PRDs for this Product PRD
+                    epic_prds = db.get_epic_prds_by_parent(prd['id'])
+                    if epic_prds:
+                        st.markdown(f"**📎 Linked Epic PRDs ({len(epic_prds)}):**")
+                        for epic in epic_prds:
+                            epic_badge = "🎯 Epic"
+                            jira_info = f" | Jira: {epic['jira_epic_key']}" if epic.get('jira_epic_key') else ""
+                            st.markdown(f"  - {epic_badge} {epic['title']}{jira_info}")
+                    
                     # Show preview
-                    preview = prd['content'][:500] + "..." if len(prd['content']) > 500 else prd['content']
+                    preview = prd['content'][:300] + "..." if len(prd['content']) > 300 else prd['content']
                     st.markdown(f"**Preview:**\n{preview}")
+            
+            # Show all Epic PRDs grouped by parent
+            st.markdown("### 🎯 Epic-Level PRDs")
+            all_epics = []
+            for product_prd in product_prds:
+                epics = db.get_epic_prds_by_parent(product_prd['id'])
+                for epic in epics:
+                    epic['parent_title'] = product_prd['title']
+                    all_epics.append(epic)
+            
+            if all_epics:
+                for epic in all_epics:
+                    epic_badge = "🎯 Epic"
+                    approval_badge = "✅ Approved" if epic['is_approved'] else "📝 Draft"
+                    jira_info = f" | Jira: {epic['jira_epic_key']}" if epic.get('jira_epic_key') else ""
+                    
+                    with st.expander(f"{epic_badge} {epic['title']} - Version {epic['version']} ({approval_badge}){jira_info}"):
+                        col1, col2 = st.columns([3, 1])
+                        
+                        with col1:
+                            st.markdown(f"**Type:** Epic-Level PRD")
+                            st.markdown(f"**Parent PRD:** {epic['parent_title']}")
+                            st.markdown(f"**Created:** {epic['created_at']}")
+                            st.markdown(f"**Last Updated:** {epic['updated_at']}")
+                            st.markdown(f"**Status:** {epic['status']}")
+                            if epic.get('jira_epic_key'):
+                                st.markdown(f"**Jira Epic:** {epic['jira_epic_key']}")
+                        
+                        with col2:
+                            if st.button(f"Load", key=f"load_epic_{epic['id']}"):
+                                st.session_state.current_prd = epic
+                                st.session_state.prd_content = epic['content']
+                                st.success(f"Loaded {epic['title']}")
+                                st.rerun()
+                        
+                        # Show preview
+                        preview = epic['content'][:300] + "..." if len(epic['content']) > 300 else epic['content']
+                        st.markdown(f"**Preview:**\n{preview}")
+            else:
+                st.info("No Epic PRDs found. Create Epic PRDs from Product-Level PRDs!")
         else:
-            st.info("No PRDs found. Create your first PRD in the Chat & Generate tab!")
+            st.info("No PRDs found. Create your first Product-Level PRD in the Chat interface!")
     
     with tab3:
         st.subheader("⚙️ Settings")
@@ -215,11 +365,20 @@ def main():
         
         with col2:
             st.markdown("### 📊 Statistics")
+            all_prds = db.get_all_prds()
+            product_prds = db.get_product_level_prds()
             approved_prds = db.get_approved_prds()
             
-            st.metric("Total PRDs", len(prds))
+            # Calculate epic PRDs count
+            epic_count = 0
+            for product_prd in product_prds:
+                epic_count += len(db.get_epic_prds_by_parent(product_prd['id']))
+            
+            st.metric("Total PRDs", len(all_prds))
+            st.metric("Product-Level PRDs", len(product_prds))
+            st.metric("Epic-Level PRDs", epic_count)
             st.metric("Approved PRDs", len(approved_prds))
-            st.metric("Draft PRDs", len(prds) - len(approved_prds))
+            st.metric("Draft PRDs", len(all_prds) - len(approved_prds))
         
         st.markdown("### 🔧 Advanced Settings")
         

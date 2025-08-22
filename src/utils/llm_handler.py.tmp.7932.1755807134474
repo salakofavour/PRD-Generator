@@ -36,67 +36,67 @@ Key guidelines for PRD generation:
 
 PRODUCT-LEVEL PRD Template:
 1. **Product Overview & Vision**
-   - Write the actual product mission statement and strategic vision with specific goals
-   - Conduct real market analysis with competitor names, pricing, and feature comparisons
-   - Create detailed user personas with names, roles, pain points, and specific use cases
-   - Define the exact problem being solved and the specific solution being built
+   - Product mission and strategic vision
+   - Market analysis and competitive landscape
+   - Target audience and user personas
+   - Problem statement and high-level solution
 
 2. **Technical Architecture**
-   - List the exact technology stack (specific languages, frameworks, databases, cloud services)
-   - Provide detailed system architecture diagrams and component descriptions
-   - Specify actual infrastructure requirements (server specs, scaling parameters, cost estimates)
-   - Detail specific integrations with exact APIs, protocols, and data formats
+   - Technology stack and platform decisions
+   - System architecture overview
+   - Infrastructure requirements
+   - Integration architecture
 
 3. **Security & Compliance**
-   - Document specific security measures, encryption standards, and authentication methods
-   - Define exact data handling procedures, retention policies, and privacy controls
-   - List specific compliance requirements with implementation details (GDPR Article 25, SOC2 Type II)
-   - Specify authentication protocols (OAuth 2.0, SAML) and authorization models (RBAC, ABAC)
+   - Security framework and measures
+   - Data protection requirements
+   - Compliance standards (GDPR, SOC2, etc.)
+   - Authentication and authorization
 
 4. **Product-Wide Requirements**
-   - List specific functional requirements with acceptance criteria and success metrics
-   - Define measurable non-functional requirements (response time < 200ms, 99.9% uptime)
-   - Specify quality attributes with quantifiable thresholds and testing criteria
-   - List exact platform support (Windows 10+, macOS 12+, Chrome 90+, Firefox 88+)
+   - Cross-cutting functional requirements
+   - Non-functional requirements (performance, scalability)
+   - Quality attributes and constraints
+   - Platform and browser support
 
 5. **Epic Roadmap**
-   - Define specific feature categories with detailed descriptions and business value
-   - Prioritize epics with business justification, effort estimates, and dependency mapping
-   - Create detailed release timeline with specific dates, deliverables, and success criteria
+   - High-level feature categories
+   - Epic prioritization and dependencies
+   - Release planning and milestones
 
 EPIC-LEVEL PRD Template:
 1. **Epic Overview**
-   - State the exact epic title and Jira epic key (e.g., PROJ-123)
-   - Reference the specific parent Product-Level PRD with ID and title
-   - Quantify business value with specific metrics (revenue impact, user engagement, cost savings)
+   - Epic title and Jira epic key
+   - Link to parent Product-Level PRD
+   - Epic goals and business value
 
 2. **Inherited Context** (from Product-Level PRD)
-   - List exact technical stack components being used for this epic
-   - Apply specific security measures and compliance requirements relevant to this feature
-   - Reference specific architectural patterns and components from the parent PRD
+   - Relevant technical stack components
+   - Applicable security measures
+   - Architecture considerations
 
 3. **Detailed Features**
-   - Write complete user stories in "As a [user], I want [goal] so that [benefit]" format
-   - Provide detailed acceptance criteria with specific conditions and expected outcomes
-   - Include wireframes, mockups, or detailed feature specifications with exact UI elements
+   - Specific user stories and scenarios
+   - Detailed acceptance criteria
+   - Feature specifications and wireframes
 
 4. **Implementation Requirements**
-   - Specify exact technical implementation details (algorithms, data structures, patterns)
-   - Document complete API specifications with endpoints, methods, request/response formats
-   - Define specific database schema changes with table structures, indexes, and constraints
-   - List exact third-party integrations with API keys, endpoints, and authentication methods
+   - Technical implementation details
+   - API specifications
+   - Database schema changes
+   - Third-party integrations
 
 5. **Testing Strategy**
-   - Write specific test cases with step-by-step instructions and expected results
-   - Define measurable performance testing requirements (load, stress, endurance tests)
-   - Specify security testing procedures with exact vulnerability assessments
+   - Test cases and scenarios
+   - Performance testing requirements
+   - Security testing considerations
 
 6. **Definition of Done**
-   - List specific, measurable completion criteria that can be objectively verified
-   - Define exact quality gates with pass/fail thresholds
-   - Specify deployment procedures, rollback plans, and monitoring requirements
+   - Completion criteria
+   - Quality gates
+   - Deployment requirements
 
-CRITICAL: Generate ACTUAL detailed content for each section. Never write instructional phrases like "Specify...", "Define...", or "List...". Write the actual specifications, definitions, and lists that developers need to implement the product."""
+Always ask clarifying questions if the user input lacks sufficient detail for any section."""
 
     def generate_prd(self, user_input: str, context: str = "") -> str:
         """Generate a PRD based on user input"""
@@ -109,9 +109,7 @@ CRITICAL: Generate ACTUAL detailed content for each section. Never write instruc
         
         messages.append({
             "role": "user", 
-            "content": f"""Generate a comprehensive Product Requirements Document with DETAILED CONTENT (not overviews) based on this input: {user_input}
-
-CRITICAL: Write actual implementations, specifications, and requirements - not descriptions of what should be written. Make it comprehensive enough that development teams can use it as their primary reference to build the product."""
+            "content": f"Please generate a comprehensive Product Requirements Document based on this input: {user_input}"
         })
         
         try:
@@ -195,19 +193,7 @@ Provide specific, actionable suggestions to improve the current PRD based on bes
             {"role": "system", "content": self.system_prompt + """
             
 FOCUS: Generate a PRODUCT-LEVEL PRD following the Product-Level PRD template.
-
-CRITICAL INSTRUCTIONS:
-1. Write ACTUAL detailed content for each section - NOT descriptions or overviews
-2. Provide specific technologies, frameworks, requirements, and implementation details
-3. Include real competitor analysis, user personas with names and details, and concrete technical specifications
-4. Never use placeholder text like "Specify the...", "Outline the...", "Define the..."
-5. Write as if this is the final PRD that development teams will use to build the product
-6. Include specific metrics, timelines, technical requirements, and business criteria
-
-Example of GOOD content: "Authentication will use OAuth 2.0 with JWT tokens, session timeout of 30 minutes, and support for Google, Microsoft, and GitHub identity providers."
-Example of BAD content: "Define authentication and authorization mechanisms to control access."
-
-Generate comprehensive, implementable content for each section."""},
+This should be a master reference document that captures the product vision, technical stack, security measures, and architecture."""},
         ]
         
         context_parts = []
@@ -244,22 +230,15 @@ Generate comprehensive, implementable content for each section."""},
             {"role": "system", "content": self.system_prompt + f"""
             
 FOCUS: Generate an EPIC-LEVEL PRD following the Epic-Level PRD template.
+This should be a detailed PRD for a specific Jira epic that inherits relevant details from the parent Product-Level PRD.
 
 PARENT PRODUCT-LEVEL PRD CONTENT:
 {parent_prd_content}
 
-CRITICAL INSTRUCTIONS:
-1. Write ACTUAL detailed content - NOT descriptions or overviews
-2. Extract and inherit specific technical details from the parent PRD above
-3. Generate complete user stories, acceptance criteria, and implementation details
-4. Provide exact API specifications, database schemas, and technical requirements
-5. Write specific test cases and deployment procedures
-6. Never use placeholder text like "Specify the...", "Define the...", "List the..."
-
-Example of GOOD content: "User Story: As a developer, I want real-time code analysis that scans JavaScript files on save and displays violations within 200ms in VS Code, so that I can fix issues immediately."
-Example of BAD content: "Specify user stories and acceptance criteria for the feature."
-
-Generate comprehensive, implementable content that developers can directly use to build this epic."""},
+Instructions:
+1. Reference and inherit relevant technical stack, security measures, and architecture from the parent PRD
+2. Focus on the specific epic requirements and features
+3. Provide detailed implementation guidance for dev, design, and test teams"""},
         ]
         
         prompt = f"Please generate a detailed Epic-Level PRD based on this input: {user_input}"

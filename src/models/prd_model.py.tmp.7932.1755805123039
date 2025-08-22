@@ -67,35 +67,6 @@ class PRDDatabase:
         conn.commit()
         conn.close()
     
-    def _migrate_existing_schema(self, cursor):
-        """Migrate existing database schema to support two-tier PRD system"""
-        try:
-            # Check if new columns exist
-            cursor.execute("PRAGMA table_info(prds)")
-            columns = [row[1] for row in cursor.fetchall()]
-            
-            # Add missing columns
-            if 'prd_type' not in columns:
-                cursor.execute("ALTER TABLE prds ADD COLUMN prd_type TEXT DEFAULT 'product'")
-            
-            if 'parent_prd_id' not in columns:
-                cursor.execute("ALTER TABLE prds ADD COLUMN parent_prd_id TEXT")
-            
-            if 'jira_epic_key' not in columns:
-                cursor.execute("ALTER TABLE prds ADD COLUMN jira_epic_key TEXT")
-            
-            if 'technical_stack' not in columns:
-                cursor.execute("ALTER TABLE prds ADD COLUMN technical_stack TEXT")
-            
-            if 'security_measures' not in columns:
-                cursor.execute("ALTER TABLE prds ADD COLUMN security_measures TEXT")
-            
-            if 'architecture_overview' not in columns:
-                cursor.execute("ALTER TABLE prds ADD COLUMN architecture_overview TEXT")
-                
-        except sqlite3.Error as e:
-            print(f"Migration warning: {e}")
-    
     def save_prd(self, title: str, content: str, user_input: str, prd_id: str = None, 
                  prd_type: str = 'product', parent_prd_id: str = None, jira_epic_key: str = None,
                  technical_stack: str = None, security_measures: str = None, 

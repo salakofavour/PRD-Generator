@@ -109,9 +109,7 @@ CRITICAL: Generate ACTUAL detailed content for each section. Never write instruc
         
         messages.append({
             "role": "user", 
-            "content": f"""Generate a comprehensive Product Requirements Document with DETAILED CONTENT (not overviews) based on this input: {user_input}
-
-CRITICAL: Write actual implementations, specifications, and requirements - not descriptions of what should be written. Make it comprehensive enough that development teams can use it as their primary reference to build the product."""
+            "content": f"Please generate a comprehensive Product Requirements Document based on this input: {user_input}"
         })
         
         try:
@@ -195,19 +193,7 @@ Provide specific, actionable suggestions to improve the current PRD based on bes
             {"role": "system", "content": self.system_prompt + """
             
 FOCUS: Generate a PRODUCT-LEVEL PRD following the Product-Level PRD template.
-
-CRITICAL INSTRUCTIONS:
-1. Write ACTUAL detailed content for each section - NOT descriptions or overviews
-2. Provide specific technologies, frameworks, requirements, and implementation details
-3. Include real competitor analysis, user personas with names and details, and concrete technical specifications
-4. Never use placeholder text like "Specify the...", "Outline the...", "Define the..."
-5. Write as if this is the final PRD that development teams will use to build the product
-6. Include specific metrics, timelines, technical requirements, and business criteria
-
-Example of GOOD content: "Authentication will use OAuth 2.0 with JWT tokens, session timeout of 30 minutes, and support for Google, Microsoft, and GitHub identity providers."
-Example of BAD content: "Define authentication and authorization mechanisms to control access."
-
-Generate comprehensive, implementable content for each section."""},
+This should be a master reference document that captures the product vision, technical stack, security measures, and architecture."""},
         ]
         
         context_parts = []
@@ -244,22 +230,15 @@ Generate comprehensive, implementable content for each section."""},
             {"role": "system", "content": self.system_prompt + f"""
             
 FOCUS: Generate an EPIC-LEVEL PRD following the Epic-Level PRD template.
+This should be a detailed PRD for a specific Jira epic that inherits relevant details from the parent Product-Level PRD.
 
 PARENT PRODUCT-LEVEL PRD CONTENT:
 {parent_prd_content}
 
-CRITICAL INSTRUCTIONS:
-1. Write ACTUAL detailed content - NOT descriptions or overviews
-2. Extract and inherit specific technical details from the parent PRD above
-3. Generate complete user stories, acceptance criteria, and implementation details
-4. Provide exact API specifications, database schemas, and technical requirements
-5. Write specific test cases and deployment procedures
-6. Never use placeholder text like "Specify the...", "Define the...", "List the..."
-
-Example of GOOD content: "User Story: As a developer, I want real-time code analysis that scans JavaScript files on save and displays violations within 200ms in VS Code, so that I can fix issues immediately."
-Example of BAD content: "Specify user stories and acceptance criteria for the feature."
-
-Generate comprehensive, implementable content that developers can directly use to build this epic."""},
+Instructions:
+1. Reference and inherit relevant technical stack, security measures, and architecture from the parent PRD
+2. Focus on the specific epic requirements and features
+3. Provide detailed implementation guidance for dev, design, and test teams"""},
         ]
         
         prompt = f"Please generate a detailed Epic-Level PRD based on this input: {user_input}"
